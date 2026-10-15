@@ -907,3 +907,145 @@
     - Missing context
     - Ambiguous prompts
     - High randomness during generation
+
+---
+
+## Additional Interview Questions
+
+- **Model Context Protocol (MCP)**
+
+- **What is MCP?**
+  - MCP stands for Model Context Protocol. It is an open standard that enables AI applications to securely interact with external tools, data sources, and services.
+  - It was introduced because traditionally every AI framework required its own custom integration code. For example, if I create a database tool in CrewAI, I may need different code to use the same capability in LangChain or another framework.
+  - MCP solves this problem by providing a standardized client-server architecture. An MCP server exposes capabilities such as tools, resources, and prompts, and any MCP-compatible client can discover and use them.
+  - This makes integrations reusable, portable, and framework-independent. Instead of writing custom integrations for every AI application, we can create one MCP server and allow multiple AI applications to use it.
+  - A good analogy is that MCP acts as a USB-C standard for AI systems, allowing different AI applications to connect to external services through a common protocol.
+
+- **Architecture of MCP:**
+  - When a user asks "What is the current revenue of Project X?", the request first reaches the Host application, such as Claude Desktop or an AI agent.
+  - The Host sends the query to the LLM. The LLM sees that it does not have the latest revenue information and decides that an external capability is required.
+  - Before this point, the MCP Client has already connected to the MCP Server and discovered available tools, resources, and prompts through the MCP protocol.
+  - Based on the available capabilities, the model selects the appropriate tool, for example get_project_revenue.
+  - The MCP Client sends a JSON-RPC request to the MCP Server to invoke that tool.
+  - The MCP Server executes the underlying business logic, such as querying a financial database.
+  - The result is returned to the MCP Client, which passes it back to the LLM.
+  - The LLM then uses that data to generate a natural language response for the user.
+
+- **Tool, resource and prompt**
+  - Tool = Do something
+  - Resource = Read something
+  - Prompt = Guide how to respond
+
+- **Why do we often write MCP tools as async functions?**
+  - Let's suppose there is a tool which has an operation to connect with a database. Now , it might be possible that the database is busy at that time and taking some time to respond back in this situation, we can make the tool as async so that it won't block other tools to be called.
+
+  ![Figure](images/image1_5dc17a.png)
+
+  - When the application starts, the MCP Client connects to all available MCP servers and discovers their tools and resources.
+  - When the user asks for the budget of Project Alpha and the employees assigned to it, the LLM determines that two separate pieces of information are required.
+  - It selects the budget tool exposed by the Finance MCP Server and the employee assignment tool exposed by the Project Management MCP Server.
+  - These tool calls may be executed sequentially or in parallel depending on the agent framework.
+  - The MCP Client routes each request to the appropriate server.
+  - The responses are returned to the LLM, which combines the information and generates a single natural-language response for the user.
+
+- **"I don't need MCP. I can simply expose REST APIs and use OpenAI function calling.", why would I need MCP?**
+  - Standardization:
+    - Without MCP
+      - Langchain -> Custom Integration
+      - Crew AI -> Custom Integration
+      - Open AI -> Custom Integration
+      - Here, we need separate code
+    - With MCP:
+      - Langchain, Crew AI, Cursor -> Mcp server.
+  - Automatic Tool Discovery:
+    - With traditional functions:
+      - Tools= [get_budget , get_employee]
+    - With MCP, just need to give the MCP server and it automatically discover which tool to use.
+  - Its more than a tool. Supports tools, resources and prompts
+
+- **What happens when an MCP Client first connects to an MCP Server?**
+
+  ![Figure](images/image2_d1ed38.png)
+
+- **When the MCP Client discovers this tool, what information about this tool should ideally be available to the LLM?**
+  - After a successful connection MCP Client stores the metadata of all the tools and the resources When LLM needs to call a tool or a resource, it basically uses the doc string in order to identify if we should use that specific tool in order to complete a task
+
+- **Langchain**
+
+- **"can you explain what LangChain is and what problem it solves?**
+  - Langchain is a framework which is used to build LLM based Applications. It provide abstractions and component like model, prompt templates, chains, agents, memory, retrievers, tool calling.
+  - Problem that it solves
+    - We can connect with different model providers without a lot of manual effort
+    - Manage prompts dynamically
+    - Create structured O/P
+    - Use tools and agents
+
+- **Why can't we simply call an LLM directly using OpenAI API?**
+  - For a simple chatbot, yes can we directly use open AI API but
+  - When do perform operation like
+    - Searching in vector DB
+    - Calls a weather API
+    - Switch between model
+  - Without langchain, we need to write code
+    - OpenAI integration
+    - Prompt management
+    - Conversation history
+    - Tool Calling
+
+- **What additional Values langchain provides?**
+  - Easily switch between different models
+  - We can reuse prompt via prompt templates
+  - Chain creation
+  - RAG support
+  - Agents and tool calling
+  - Memory management: Components can automatically manage chat history and pass it back to the model
+
+- **Can you explain the major components of LangChain and what each one is used for?**
+  - Models: Model are used to connect with the different LLM providers. It provide us the wrapper classes with respect to each of the model provider
+  - Prompt Template: it helps use to create templates of the prompt which can be reused via multiple LLM calls instead of writing the same prompt every time.
+  - Output parser: LLM sends unstructured data as an output. it helps to get the structured output via pydantic.
+  - Retriever: It helps us to retrieve relevant information. When we are creating a RAG application, we use retrievers
+  - Memory: Memory is used to manage the conversation with LLM so that after each time we call LLM, it won't lose the context
+  - Tools: Tools are basically functions which are used to perform specific operation.
+  - Agents: Agents uses LLM to dynamically decide which tools to use, in what order to use and when the task is complete.
+  - Chains: It is a sequence of steps or workflows which is used to complete a specific task
+
+- **Chain VS Agent**
+  - Steps are predefined by the developer in chain. Steps are dynamically decided by agent.
+  - Chains are faster and Cheaper but Agents are more flexible.
+
+- **Explain me the RAG pipeline. Also, explain need of chunking , why can't we store the raw data in vector DB and embedding?**
+  - To understand it, we can divide it into two parts:
+    - data ingestion
+    - Retrieval pipeline
+  - In data ingestion, we follow the below steps:
+    - load the document. Let's suppose, we have a PDF as an external documentation, we first load that document using the pyPDF class which returns us the document object containing the content and meta data about the PDF.
+    - Split that document into chunks there are various text splitter that we can use in order to split the text. Ex: recursive text splitter
+    - Convert chunks into embedding and store it into vector DB Once, we got the chunks , we can convert them into embedding and can store them into the vector DB.
+  - Retrieval Pipeline :
+    - Let's suppose, user has given a prompt.
+    - Using the retriever, relevant chunks will be fetched from the vector database and in order to fetch we have various similarity search methods like cosine , dot similarity, RAG system basically uses cosine similarity.
+    - After retrieval, it augments those retrieved chunks with the query and give it to LLM.
+    - LLM process the data and generate an O/P.
+  - Need of chunking because it helps us to fetch only the relevant chunks which are required in order to fulfil the user query. If we fetch the complete document, there LLM won't be able to process that because it has a context length.
+  - Embedding are the numerical representation of text in the form of vectors.
+  - Raw text search relies mostly on keyword matching, while embeddings enable semantic search. Semantic search can retrieve relevant chunks even when the user's wording differs from the document wording.
+    - ex: let's suppose based on the user query if the retriever won't find the exact keyword match then it won't be able to fetch that chunk normal text should require the exact match
+
+- **Similarity Search  and Retriever? Why don't we directly query the vector database?**
+  - Similarity search is used to find how one vector is relevant to another vector in a high dimensional space.
+  - There are various methods for similarity search:
+    - cosine similarity : it measures the angle between two vector. ignores the magnitude
+    - dot product similarity: it finds the similarity by dot product. It considers both magnitude and direction. If the dot product is high positive value that means vectors are very similar If the dot product is negative, then vectors are not similar at all.
+    - Ecludian
+  - Retriever is a component which uses the similarity search method in order to fetch the relevant chunks from the vector database
+  - We can also query the vector DB directly but then we need to code everything like the similarity search
+
+- **Suppose your RAG Application is giving poor answer and User Complains "The information exists in the PDF but the chatbot is not finding it"**
+  - There are several ways to improve the RAG application:
+  - Chunk size: We would use a good chunk size instead of chunking the complete document in 1 or 2 chunks. Usually, a chunk size of 500-800 tokens is considered as a good chunk size.
+  - Chunk overlap: It means how many tokens present at he end of first chunk will present at the start of next chunk. Usually, 20-30% of chunk size is considered as a good overlap.
+  - Better embedding model: As good as you have a good embedding model, you would be able to store good amount of information for a chunk. Also, whatever embedding model that has been used at the time of data ingestion, we should we the same embedding model at the time of retriever.
+  - Re-ranking: reorder the chunks that was retrieved by the retriever using another LLM. It helps us to use only the relevant chunks.
+  - Multi query retriever: Let's suppose we have a query, we try to generate some alternate query. Each query performs retrieval and then results are combined
+  - Hybrid search: It performs similarity search +  keyword search. In document, we also store the metadata that meta data could be used to perform keyword search.
